@@ -57,7 +57,7 @@ contract Raffle is VRFConsumerBaseV2{
     RaffleState private s_raffleState;
    
 
-    event EnterRaffle(address indexed player);
+    event EnteredRaffle(address indexed player);
     event WinnerPicked(address indexed winner);
     
     error Raffle__NotEnoughETHSend();
@@ -95,7 +95,7 @@ contract Raffle is VRFConsumerBaseV2{
 
         s_palyers.push(payable(msg.sender));
 
-        emit EnterRaffle(msg.sender);
+        emit EnteredRaffle(msg.sender);
     }
 
     //生成一个随机数
@@ -121,11 +121,11 @@ contract Raffle is VRFConsumerBaseV2{
 
         s_raffleState = RaffleState.CLACULATING;
         i_vrfCoordinator.requestRandomWords(
-            i_gasLine,
+            i_gasLine,//指定了愿意为更快的响应在网络上支付的gas费用，不同网络gas费率不同，每个gas价格都有自己的地址，见官方文档
             i_subscriptionId,
-            REQUEST_CONFIRMATIONS,
-            i_callbackGasLimit,
-            NUM_WORDS
+            REQUEST_CONFIRMATIONS,//需要多少区块确认
+            i_callbackGasLimit,//callback函数中可用的最大gas量
+            NUM_WORDS//获取随机数的数量
         );
 
     }
@@ -156,5 +156,9 @@ contract Raffle is VRFConsumerBaseV2{
 
     function getRaffleState() external view returns(RaffleState) {
         return s_raffleState;
+    }
+
+    function getRafflePlayers(uint256 indexOfPlayer) external view returns (address) {
+        return s_palyers[indexOfPlayer];
     }
 }
