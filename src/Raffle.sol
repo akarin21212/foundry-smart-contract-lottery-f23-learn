@@ -50,7 +50,7 @@ contract Raffle is VRFConsumerBaseV2{
     VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
     bytes32 private immutable i_gasLine;
     uint32 private immutable i_callbackGasLimit;
-    address payable[] private s_palyers;
+    address payable[] private s_players;
     uint256 private s_lastTimeStamp;
     uint64 private immutable i_subscriptionId;
     address private s_recentWinner;
@@ -58,12 +58,17 @@ contract Raffle is VRFConsumerBaseV2{
    
 
     event EnteredRaffle(address indexed player);
+    event RequestedRaffleWinner(uint indexed winner);
     event WinnerPicked(address indexed winner);
     
     error Raffle__NotEnoughETHSend();
     error Raffle__TransferFailed();
     error Raffle__NotOpen();
-    error Raffle__UpkeepNotNeeded();
+    error Raffle__UpkeepNotNeeded(
+        uint256 currentBalance,
+        uint256 numPlayers,
+        uint256 raffleState
+    );
 
     constructor(
         uint256 entranceFee, 
@@ -93,7 +98,7 @@ contract Raffle is VRFConsumerBaseV2{
             revert Raffle__NotEnoughETHSend();
         }
 
-        s_palyers.push(payable(msg.sender));
+        s_players.push(payable(msg.sender));
 
         emit EnteredRaffle(msg.sender);
     }
@@ -108,7 +113,7 @@ contract Raffle is VRFConsumerBaseV2{
             bool timeHasPassed = (block.timestamp - s_lastTimeStamp) >= i_interval;
             bool isOpen = s_raffleState == RaffleState.OPEN;
             bool hasBalance = address(this).balance > 0;
-            bool hasPlayers = s_palyers.length > 0;
+            bool hasPlayers = s_players.length > 0;
             upkeepNeeded = (timeHasPassed && isOpen && hasBalance && hasPlayers);
         } 
 
@@ -116,30 +121,34 @@ contract Raffle is VRFConsumerBaseV2{
 
         (bool upkeepNeeded,) = checkUpkeep("");
         if (!upkeepNeeded){
-            revert Raffle__UpkeepNotNeeded();
+            revert Raffle__UpkeepNotNeeded(
+                address(this).balance,
+                s_players.length,
+                uint256(s_raffleState)
+            );
         }
 
         s_raffleState = RaffleState.CLACULATING;
-        i_vrfCoordinator.requestRandomWords(
+        uint requestId = i_vrfCoordinator.requestRandomWords(
             i_gasLine,//指定了愿意为更快的响应在网络上支付的gas费用，不同网络gas费率不同，每个gas价格都有自己的地址，见官方文档
             i_subscriptionId,
             REQUEST_CONFIRMATIONS,//需要多少区块确认
             i_callbackGasLimit,//callback函数中可用的最大gas量
             NUM_WORDS//获取随机数的数量
         );
-
+        emit RequestedRaffleWinner(requestId);
     }
 
     function fulfillRandomWords(
         uint256 /*requestId*/,
         uint256[] memory randomWords
     ) internal override {
-        uint256 indexOfWinner = randomWords[0] % s_palyers.length;
-        address payable winner = s_palyers[indexOfWinner];
+        uint256 indexOfWinner = randomWords[0] % s_players.length;
+        address payable winner = s_players[indexOfWinner];
         s_recentWinner = winner;
         s_raffleState = RaffleState.OPEN;
 
-        s_palyers = new address payable[](0);
+        s_players = new address payable[](0);
         s_lastTimeStamp = block.timestamp;
 
         emit WinnerPicked(winner);
@@ -159,6 +168,6 @@ contract Raffle is VRFConsumerBaseV2{
     }
 
     function getRafflePlayers(uint256 indexOfPlayer) external view returns (address) {
-        return s_palyers[indexOfPlayer];
+        return s_players[indexOfPlayer];
     }
 }
