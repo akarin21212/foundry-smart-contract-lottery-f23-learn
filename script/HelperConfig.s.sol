@@ -14,9 +14,12 @@ contract HelperConfig is Script{
         uint64 subscriptionId;
         uint32 callbackGasLimit;
         address link;
+        uint256 deployKey;
     }
 
     NetworkConfig public activeNetworkConfig;
+
+    uint256 public constant ANVIL_KEY = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
 
     constructor(){
         if (block.chainid == 11155111) {
@@ -26,7 +29,7 @@ contract HelperConfig is Script{
         }
     }
 
-    function getSepoliaEthConfig() public pure returns(NetworkConfig memory){
+    function getSepoliaEthConfig() public view returns(NetworkConfig memory){
         return NetworkConfig({
             entranceFee: 0.01 ether,
             interval: 30,
@@ -34,7 +37,8 @@ contract HelperConfig is Script{
             gasLine: 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c,
             subscriptionId: 10486,
             callbackGasLimit: 500000,
-            link: 0x779877A7B0D9E8603169DdbD7836e478b4624789
+            link: 0x779877A7B0D9E8603169DdbD7836e478b4624789,
+            deployKey: vm.envUint("RRIVATE_KEY")
         });
     }
 
@@ -58,7 +62,8 @@ contract HelperConfig is Script{
             gasLine: 0x474e34a077df58807dbe9c96d3c009b23b3c6d0cce433e59bbf5b34f823bc56c,
             subscriptionId: 0,
             callbackGasLimit: 500000,
-            link: address(linkToken)
+            link: address(linkToken),
+            deployKey: ANVIL_KEY
         });
     }
 

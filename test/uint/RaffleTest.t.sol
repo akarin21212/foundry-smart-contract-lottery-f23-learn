@@ -38,7 +38,8 @@ contract RaffleRest is Test{
         gasLine,
         subscriptionId,
         callbackGasLimit,
-        link
+        link,
+
         ) = helperConfig.activeNetworkConfig();
         vm.deal(PLAYER, STARTING_USER_BALANCE);
     }
@@ -136,14 +137,16 @@ contract RaffleRest is Test{
     function testPerformUpkeepRevertsIfupkeepNeededIsFalse() public {
         uint256 currentBalance = 0;
         uint256 numPlayers = 0;
-        uint256 raffleState = 0;
+        Raffle.RaffleState rState = raffle.getRaffleState();
 
+        console.log(address(raffle).balance);
+        
         vm.expectRevert(
             abi.encodeWithSelector(
                 Raffle.Raffle__UpkeepNotNeeded.selector, 
                 currentBalance, 
                 numPlayers, 
-                raffleState
+                rState
                 )
         );
         raffle.performUpkeep("");
@@ -167,12 +170,20 @@ contract RaffleRest is Test{
     //////////////////////////
     ///fulfillRandomWords  ///
     //////////////////////////
-    function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep(uint256 randomRequstId) public {
+    modifier skipFork {
+        if (block.chainid != 31337) {
+            return;
+        }
+        _;
+    }
+
+    function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep(uint256 randomRequstId) public skipFork {
         vm.prank(PLAYER);
         raffle.enterRaffle{value: entranceFee}();
         vm.warp(block.timestamp + interval + 1);
         vm.roll(block.number);
 
+        //从事件中获取requestId
         vm.expectRevert("nonexistent request");
         VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(
             randomRequstId,
@@ -180,5 +191,38 @@ contract RaffleRest is Test{
         );
     }
 
-    
+    function testFulfillRandomWordsPicksAWinnerAndSendsMoney() public skipFork {
+        vm.prank(PLAYER);
+        raffle.enterRaffle{value: entranceFee}();
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number);
+        //再加入四名玩家
+        for (uint256 i = 1; i < 5; i++) {
+            address player = address(uint160(i));
+            hoax(player, STARTING_USER_BALANCE);
+            raffle.enterRaffle{value: entranceFee}();
+        }
+
+        uint256 prize = entranceFee * 4;
+
+        vm.recordLogs();
+        raffle.performUpkeep("");
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        bytes32 requestId = entries[1].topics[1];
+
+        uint256 prevoiusTimestamp = raffle.getLastTimeStamp();
+
+        VRFCoordinatorV2Mock(vrfCoordinator).fulfillRandomWords(
+            uint256(requestId),
+            address(raffle)
+        );
+
+        assert(uint256(raffle.getRaffleState()) == 0);
+        assert(raffle.getRecentWinner() != address(0));
+        assert(raffle.getLengthOfPlayers() == 0);
+        assert(prevoiusTimestamp < raffle.getLastTimeStamp());
+        assert(
+            raffle.getRecentWinner().balance == STARTING_USER_BALANCE + prize
+        );
+    }
 }
