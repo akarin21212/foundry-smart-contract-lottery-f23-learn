@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {Script} from "forge-std/Script.sol";
+import {Script, console} from "forge-std/Script.sol";
 import {Raffle} from "../src/Raffle.sol";
 import {HelperConfig} from "./HelperConfig.s.sol";
 import {CreateSubscription, FundSubscription, AddConsumer} from "./Interactions.s.sol";
@@ -39,7 +39,7 @@ contract DeployRaffle is Script {
             callbackGasLimit
         );
         vm.stopBroadcast();
-
+        console.log("CreatRaffle: ", address(raffle));
         //添加consumer
         AddConsumer addConsumer = new AddConsumer();
         addConsumer.addConsumer(
@@ -48,6 +48,8 @@ contract DeployRaffle is Script {
             subscriptionId, 
             deployKey
         );
+
+        console.log("AfterAddConsumerRaffle: ", address(raffle));
 
         return (raffle, helperConfig);
     }
